@@ -231,7 +231,7 @@ function createPopupHTML(routeName = '') {
 }
 
 // ============ HÀM FETCH HTML ============
-async function fetchAndFixHtml(targetUrl, baseUrl = 'https://minhtuanxrophim.vercel.app', routeName = '') {
+async function fetchAndFixHtml(targetUrl, baseUrl = 'https://rophimz.vercel.app', routeName = '') {
     const response = await axios.get(targetUrl, {
         headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -313,7 +313,7 @@ app.get('/proxy', async (req, res) => {
     try {
         let targetUrl = req.query.url;
         if (!targetUrl) {
-            targetUrl = 'https://minhtuanxrophim.vercel.app/phimhay';
+            targetUrl = 'https://rophimz.vercel.app/phimhay';
         }
         if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
             targetUrl = 'https://' + targetUrl;
@@ -322,7 +322,7 @@ app.get('/proxy', async (req, res) => {
         console.log(`🔄 Đang lấy: ${targetUrl}`);
         
         const routeName = req.query.url ? new URL(targetUrl).pathname : '/proxy';
-        const html = await fetchAndFixHtml(targetUrl, 'https://minhtuanxrophim.vercel.app', routeName);
+        const html = await fetchAndFixHtml(targetUrl, 'https://rophimz.vercel.app', routeName);
         
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.setHeader('X-Frame-Options', 'ALLOWALL');
@@ -355,7 +355,7 @@ app.get('/proxy', async (req, res) => {
 app.get('/images/*', async (req, res) => {
     try {
         const imagePath = req.params[0] || '';
-        const targetUrl = `https://minhtuanxrophim.vercel.app/images/${imagePath}`;
+        const targetUrl = `https://rophimz.vercel.app/images/${imagePath}`;
         
         console.log(`🖼️ Đang lấy image: ${targetUrl}`);
         
@@ -382,12 +382,12 @@ app.get('/images/*', async (req, res) => {
 app.get('/quoc-gia/:country', async (req, res) => {
     try {
         const countryPath = req.params.country || '';
-        const targetUrl = `https://minhtuanxrophim.vercel.app/quoc-gia/${countryPath}`;
+        const targetUrl = `https://rophimz.vercel.app/quoc-gia/${countryPath}`;
         const routeName = `/quoc-gia/${countryPath}`;
         
         console.log(`🌍 Đang lấy quốc gia: ${targetUrl}`);
         
-        const html = await fetchAndFixHtml(targetUrl, 'https://minhtuanxrophim.vercel.app', routeName);
+        const html = await fetchAndFixHtml(targetUrl, 'https://rophimz.vercel.app', routeName);
         
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.setHeader('X-Frame-Options', 'ALLOWALL');
@@ -418,12 +418,12 @@ app.get('/quoc-gia/:country', async (req, res) => {
 app.get('/the-loai/:genre', async (req, res) => {
     try {
         const genrePath = req.params.genre || '';
-        const targetUrl = `https://minhtuanxrophim.vercel.app/the-loai/${genrePath}`;
+        const targetUrl = `https://rophimz.vercel.app/the-loai/${genrePath}`;
         const routeName = `/the-loai/${genrePath}`;
         
         console.log(`🎭 Đang lấy thể loại: ${targetUrl}`);
         
-        const html = await fetchAndFixHtml(targetUrl, 'https://minhtuanxrophim.vercel.app', routeName);
+        const html = await fetchAndFixHtml(targetUrl, 'https://rophimz.vercel.app', routeName);
         
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.setHeader('X-Frame-Options', 'ALLOWALL');
@@ -473,10 +473,10 @@ const fixedRoutes = [
 fixedRoutes.forEach(route => {
     app.get(route, async (req, res) => {
         try {
-            const targetUrl = `https://minhtuanxrophim.vercel.app${route}`;
+            const targetUrl = `https://rophimz.vercel.app${route}`;
             console.log(`🎬 Đang lấy: ${targetUrl}`);
             
-            const html = await fetchAndFixHtml(targetUrl, 'https://minhtuanxrophim.vercel.app', route);
+            const html = await fetchAndFixHtml(targetUrl, 'https://rophimz.vercel.app', route);
             
             res.setHeader('Content-Type', 'text/html; charset=utf-8');
             res.setHeader('X-Frame-Options', 'ALLOWALL');
@@ -508,12 +508,12 @@ fixedRoutes.forEach(route => {
 app.get('/phim/:slug', async (req, res) => {
     try {
         const slug = req.params.slug;
-        const targetUrl = `https://minhtuanxrophim.vercel.app/phim/${slug}`;
+        const targetUrl = `https://rophimz.vercel.app/phim/${slug}`;
         const routeName = `/phim/${slug}`;
         
         console.log(`🎬 Đang lấy phim: ${targetUrl}`);
         
-        const html = await fetchAndFixHtml(targetUrl, 'https://minhtuanxrophim.vercel.app', routeName);
+        const html = await fetchAndFixHtml(targetUrl, 'https://rophimz.vercel.app', routeName);
         
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.setHeader('X-Frame-Options', 'ALLOWALL');
@@ -531,12 +531,12 @@ app.get('/phim/:slug', async (req, res) => {
 app.get('/xem-phim/:slug', async (req, res) => {
     try {
         const slug = req.params.slug;
-        const targetUrl = `https://minhtuanxrophim.vercel.app/xem-phim/${slug}`;
+        const targetUrl = `https://rophimz.vercel.app/xem-phim/${slug}`;
         const routeName = `/xem-phim/${slug}`;
         
         console.log(`🎬 Đang lấy xem-phim: ${targetUrl}`);
         
-        const html = await fetchAndFixHtml(targetUrl, 'https://minhtuanxrophim.vercel.app', routeName);
+        const html = await fetchAndFixHtml(targetUrl, 'https://rophimz.vercel.app', routeName);
         
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.setHeader('X-Frame-Options', 'ALLOWALL');
@@ -553,7 +553,7 @@ app.get('/xem-phim/:slug', async (req, res) => {
 // ============ ROUTE CHO MANIFEST, ROBOTS, SITEMAP ============
 app.get('/manifest.json', async (req, res) => {
     try {
-        const targetUrl = 'https://minhtuanxrophim.vercel.app/manifest.json';
+        const targetUrl = 'https://rophimz.vercel.app/manifest.json';
         const response = await axios.get(targetUrl, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
@@ -571,7 +571,7 @@ app.get('/manifest.json', async (req, res) => {
 
 app.get('/robots.txt', async (req, res) => {
     try {
-        const targetUrl = 'https://minhtuanxrophim.vercel.app/robots.txt';
+        const targetUrl = 'https://rophimz.vercel.app/robots.txt';
         const response = await axios.get(targetUrl, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
@@ -589,7 +589,7 @@ app.get('/robots.txt', async (req, res) => {
 
 app.get('/sitemap.xml', async (req, res) => {
     try {
-        const targetUrl = 'https://minhtuanxrophim.vercel.app/sitemap.xml';
+        const targetUrl = 'https://rophimz.vercel.app/sitemap.xml';
         const response = await axios.get(targetUrl, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
@@ -854,7 +854,7 @@ app.get('/', (req, res) => {
             </div>
             <script>
                 function customUrl() {
-                    const url = prompt('Nhập URL cần lấy:', 'https://minhtuanxrophim.vercel.app/phimhay');
+                    const url = prompt('Nhập URL cần lấy:', 'https://rophimz.vercel.app/phimhay');
                     if (url) { window.open('/proxy?url=' + encodeURIComponent(url), '_blank'); }
                 }
             </script>

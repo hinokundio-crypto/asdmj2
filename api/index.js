@@ -313,7 +313,7 @@ app.get('/proxy', async (req, res) => {
     try {
         let targetUrl = req.query.url;
         if (!targetUrl) {
-            targetUrl = 'https://rophimz.vercel.app/phimhay';
+            targetUrl = 'https://rophimz.vercel.app/';
         }
         if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
             targetUrl = 'https://' + targetUrl;

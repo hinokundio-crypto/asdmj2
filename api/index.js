@@ -19,7 +19,8 @@ app.use((req, res, next) => {
 
 // ============ POPUP ============
 function createPopupHTML(routeName = '') {
-    const displayName = routeName ? routeName.replace(/^\//, '').replace(/-/g, ' ').toUpperCase() : 'HỆ THỐNG';
+    const clean = (routeName || '/').replace(/^\//, '').replace(/-/g, ' ').replace(/\//g, ' · ').toUpperCase();
+    const displayName = clean || 'HỆ THỐNG';
     return `
     <div id="proxyPopup" style="
         display:none; position:fixed; inset:0;
@@ -57,24 +58,33 @@ function createPopupHTML(routeName = '') {
     </div>`;
 }
 
-// ============ DÒ XEM CÓ NHÚNG ĐƯỢC KHÔNG ============
+// ============ DÒ NHÚNG (cache theo origin) ============
+const embedCache = new Map();
 async function canEmbed(url) {
+    let origin;
+    try { origin = new URL(url).origin; } catch { return false; }
+    const hit = embedCache.get(origin);
+    if (hit && Date.now() - hit.t < 300000) return hit.ok;
+
+    let ok = true;
     try {
         const r = await axios.get(url, {
             headers: { 'User-Agent': UA, 'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.8' },
             maxRedirects: 10, timeout: 15000, validateStatus: () => true, httpsAgent: agent
         });
         const xfo = String(r.headers['x-frame-options'] || '').toLowerCase();
-        if (xfo.includes('deny') || xfo.includes('sameorigin')) return false;
+        if (xfo.includes('deny') || xfo.includes('sameorigin')) ok = false;
         const csp = String(r.headers['content-security-policy'] || '').toLowerCase();
         const m = csp.match(/frame-ancestors([^;]*)/);
-        if (m && !m[1].includes('*')) return false;
-        return true;
-    } catch (e) { return false; }
+        if (m && !m[1].includes('*')) ok = false;
+    } catch { ok = false; }
+
+    embedCache.set(origin, { ok, t: Date.now() });
+    return ok;
 }
 
-// ============ VỎ EMBED: IFRAME + OVERLAY ============
-function embedShell(src, target, mode) {
+// ============ VỎ NHÚNG ============
+function embedShell(src, path) {
     const themes = [
         ['off', 'Tắt', 'linear-gradient(160deg,#1a1a1a,#2a2a2a)'],
         ['midnight', 'Midnight', 'linear-gradient(160deg,#05060d,#101b33)'],
@@ -84,7 +94,6 @@ function embedShell(src, target, mode) {
         ['mono', 'Mono', 'linear-gradient(160deg,#0a0a0a,#1f1f1f)'],
         ['cinema', 'Cinema', 'linear-gradient(160deg,#08080b,#141418)']
     ];
-    const safeTarget = target.replace(/"/g, '&quot;');
 
     return `<!DOCTYPE html>
 <html lang="vi"><head>
@@ -96,7 +105,6 @@ function embedShell(src, target, mode) {
     html,body{height:100%;overflow:hidden;background:#07070c;font-family:'Segoe UI',Tahoma,sans-serif;}
     :root{ --nhk-offset: 38px; }
 
-    /* ===== KHUNG IFRAME ===== */
     #nhkFrameWrap{
         position:fixed; left:0; right:0; bottom:0; top:var(--nhk-offset);
         z-index:2147483000; background:#07070c; transition:top .3s ease;
@@ -118,7 +126,6 @@ function embedShell(src, target, mode) {
     }
     @keyframes nhkSpin{ to{ transform:rotate(360deg); } }
 
-    /* ===== LỚP HIỆU ỨNG (trên iframe, không chặn click) ===== */
     #nhkVignette{
         position:fixed; inset:0; z-index:2147483300; pointer-events:none; opacity:0;
         transition:opacity .4s ease;
@@ -136,7 +143,6 @@ function embedShell(src, target, mode) {
     #nhkBarTop{ top:0; } #nhkBarBot{ bottom:0; }
     html.nhk-cine #nhkBarTop, html.nhk-cine #nhkBarBot{ height:clamp(34px,7vh,84px); }
 
-    /* ===== BANNER ===== */
     #nhkTopBar{
         position:fixed; top:0; left:0; right:0; height:38px; z-index:2147483600;
         display:flex; align-items:center; justify-content:space-between; gap:12px; padding:0 12px;
@@ -181,7 +187,6 @@ function embedShell(src, target, mode) {
     }
     #nhkTab.show{ display:block; }
 
-    /* ===== PANEL ===== */
     #nhkPanel{
         position:fixed; top:44px; right:10px; z-index:2147483620; width:308px; max-width:calc(100vw - 20px);
         max-height:calc(100vh - 60px); overflow:auto;
@@ -213,12 +218,6 @@ function embedShell(src, target, mode) {
     .nhk-tg.on{ color:#000; font-weight:800; background:linear-gradient(135deg,#00ff99,#00ccff); border-color:transparent; }
     .nhk-range{ display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:10px; color:#999; margin-bottom:7px; }
     .nhk-range input{ flex:1; accent-color:#00ff99; height:3px; cursor:pointer; }
-    .nhk-urlrow{ display:flex; gap:5px; }
-    .nhk-urlrow input{
-        flex:1; min-width:0; font-size:10px; font-family:monospace; color:#00ff99;
-        background:rgba(0,0,0,.45); border:1px solid rgba(0,255,153,.25);
-        border-radius:7px; padding:6px 8px; outline:none;
-    }
     .nhk-p-foot{ display:flex; align-items:center; justify-content:space-between; margin-top:12px; padding-top:10px; border-top:1px solid rgba(255,255,255,.07); }
     .nhk-reset{ font-size:10px; font-weight:700; color:#ff6b6b; cursor:pointer; font-family:inherit;
         background:rgba(255,107,107,.1); border:1px solid rgba(255,107,107,.3); padding:5px 11px; border-radius:7px; }
@@ -282,19 +281,13 @@ function embedShell(src, target, mode) {
     <label class="nhk-range">Tương phản <input type="range" id="nhkContrast" min="60" max="150" step="1"></label>
     <label class="nhk-range">Bão hòa <input type="range" id="nhkSat" min="0" max="200" step="1"></label>
 
-    <div class="nhk-p-label">Đổi link</div>
-    <div class="nhk-urlrow">
-        <input id="nhkUrl" value="${safeTarget}" spellcheck="false">
-        <button id="nhkGo" class="nhk-btn">Đi</button>
-    </div>
-
     <div class="nhk-p-foot">
         <button id="nhkReset" class="nhk-reset">↺ Đặt lại</button>
         <span class="nhk-hint">Ctrl+Shift+K</span>
     </div>
 </div>
 
-${createPopupHTML(target.replace(BASE, '') || '/')}
+${createPopupHTML(path)}
 
 <script>
 (function(){
@@ -353,7 +346,6 @@ ${createPopupHTML(target.replace(BASE, '') || '/')}
   });
   $('nhkReset').addEventListener('click',function(){ cfg=Object.assign({},D); apply(); });
 
-  function openP(){ panel.classList.add('open'); }
   function closeP(){ panel.classList.remove('open'); }
   $('nhkOpenPanel').addEventListener('click',function(e){ e.stopPropagation(); panel.classList.toggle('open'); });
   $('nhkClosePanel').addEventListener('click',closeP);
@@ -364,12 +356,6 @@ ${createPopupHTML(target.replace(BASE, '') || '/')}
   tab.addEventListener('click',showBar);
 
   $('nhkReload').addEventListener('click',function(){ spin.classList.remove('hide'); frame.src=frame.src; });
-  $('nhkGo').addEventListener('click',function(){
-    var v=$('nhkUrl').value.trim(); if(!v) return;
-    location.href='/embed?url='+encodeURIComponent(v);
-  });
-  $('nhkUrl').addEventListener('keydown',function(e){ if(e.key==='Enter') $('nhkGo').click(); });
-
   frame.addEventListener('load',function(){ spin.classList.add('hide'); });
 
   document.addEventListener('click',function(e){
@@ -403,7 +389,7 @@ ${createPopupHTML(target.replace(BASE, '') || '/')}
 </body></html>`;
 }
 
-// ============ FETCH + INJECT (cho chế độ proxy dự phòng) ============
+// ============ FETCH + INJECT (chạy ngầm trong iframe) ============
 async function fetchAndFixHtml(targetUrl, baseUrl = BASE, routeName = '', bare = false) {
     const response = await axios.get(targetUrl, {
         headers: {
@@ -430,11 +416,8 @@ async function fetchAndFixHtml(targetUrl, baseUrl = BASE, routeName = '', bare =
         };
     </script>`;
 
-    // bare = true: không chèn overlay, ép mọi link mở tại chỗ trong iframe
     const inject = bare ? '' : createPopupHTML(routeName);
-    const baseTag = bare
-        ? `<base href="${baseUrl}/" target="_self">`
-        : `<base href="${baseUrl}/">`;
+    const baseTag = bare ? `<base href="${baseUrl}/" target="_self">` : `<base href="${baseUrl}/">`;
 
     html = html.replace(/<head>/i, `<head>
         ${baseTag}
@@ -481,36 +464,32 @@ function errPage(res, error, label) {
             <p>${error.message}</p>
             ${label ? `<p style="color:#888;font-size:14px;">${label}</p>` : ''}
             <button onclick="location.reload()" style="padding:10px 30px;background:#00ff99;border:none;border-radius:5px;cursor:pointer;margin-top:20px;">Thử lại</button>
-            <br><br><a href="/" style="color:#00ccff;">Quay lại trang chủ</a>
+            <br><br><a href="/" style="color:#00ccff;">Quay lại</a>
         </body></html>`);
 }
 
-// ============ EMBED: VỎ CHÍNH ============
-app.get('/embed', async (req, res) => {
-    try {
-        let target = req.query.url || BASE + '/';
-        if (!/^https?:\/\//.test(target)) target = 'https://' + target;
-        const ok = await canEmbed(target);
-        const src = ok ? target : '/proxy?url=' + encodeURIComponent(target) + '&bare=1';
-        console.log(`🖼 EMBED [${ok ? 'direct' : 'proxy'}] ${target}`);
-        sendHtml(res, embedShell(src, target, ok ? 'direct' : 'proxy'));
-    } catch (error) { errPage(res, error); }
-});
+// ============ HÀM DỰNG VỎ THEO ĐƯỜNG DẪN ============
+async function serveShell(res, path) {
+    const target = BASE + path;
+    const ok = await canEmbed(target);
+    const src = ok ? target : '/proxy?url=' + encodeURIComponent(target) + '&bare=1';
+    sendHtml(res, embedShell(src, path));
+}
 
-// ============ PROXY (fallback trong iframe + dùng trực tiếp) ============
+// ============ PROXY (chỉ chạy trong iframe) ============
 app.get('/proxy', async (req, res) => {
     try {
         let targetUrl = req.query.url || BASE + '/';
         if (!/^https?:\/\//.test(targetUrl)) targetUrl = 'https://' + targetUrl;
         const bare = req.query.bare === '1';
-        const routeName = req.query.url ? new URL(targetUrl).pathname : '/proxy';
+        const routeName = req.query.url ? new URL(targetUrl).pathname : '/';
         const html = await fetchAndFixHtml(targetUrl, BASE, routeName, bare);
         sendHtml(res, html);
     } catch (error) { errPage(res, error); }
 });
 
 // ============ IMAGES ============
-app.get('/images/*', async (req, res) => {
+app.get(/^\/images\/(.*)$/, async (req, res) => {
     try {
         const targetUrl = `${BASE}/images/${req.params[0] || ''}`;
         const response = await axios.get(targetUrl, {
@@ -522,32 +501,6 @@ app.get('/images/*', async (req, res) => {
         console.error('❌ Lỗi image:', error.message);
         res.status(404).send('Image not found');
     }
-});
-
-// ============ ROUTE ĐỘNG (dùng khi truy cập trực tiếp) ============
-function dynamicRoute(prefix) {
-    app.get(prefix + '/:p', async (req, res) => {
-        try {
-            const targetUrl = `${BASE}${prefix}/${req.params.p}`;
-            const html = await fetchAndFixHtml(targetUrl, BASE, `${prefix}/${req.params.p}`);
-            sendHtml(res, html);
-        } catch (error) { errPage(res, error, `Route: ${prefix}/${req.params.p}`); }
-    });
-}
-['/quoc-gia', '/the-loai', '/phim', '/xem-phim'].forEach(dynamicRoute);
-
-// ============ ROUTE CỐ ĐỊNH ============
-const fixedRoutes = ['/phimhay', '/phim-le', '/phim-bo', '/hoi-dap', '/chinh-sach-bao-mat',
-    '/dieu-khoan-su-dung', '/gioi-thieu', '/lien-he', '/dongphim', '/ghienphim', '/motphim',
-    '/subnhanh', '/phim', '/the-loai', '/quoc-gia', '/tim-kiem'];
-
-fixedRoutes.forEach(route => {
-    app.get(route, async (req, res) => {
-        try {
-            const html = await fetchAndFixHtml(`${BASE}${route}`, BASE, route);
-            sendHtml(res, html);
-        } catch (error) { errPage(res, error, `Route: ${route}`); }
-    });
 });
 
 // ============ STATIC FILES ============
@@ -562,8 +515,8 @@ fixedRoutes.forEach(route => {
         });
     });
 
-// ============ TRANG CHỦ ============
-app.get('/', (req, res) => {
+// ============ TRANG GIỚI THIỆU ============
+app.get('/info', (req, res) => {
     res.send(`
         <!DOCTYPE html><html><head><title>CODE BY NHK</title>
         <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -599,8 +552,6 @@ app.get('/', (req, res) => {
                 transition:.3s;border:none;text-decoration:none;display:inline-block;}
             .btn-primary{background:linear-gradient(135deg,#00ff99,#00ccff);color:#000;}
             .btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,255,153,.3);}
-            .btn-secondary{background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.12);}
-            .btn-secondary:hover{background:rgba(255,255,255,.15);}
             .footer{margin-top:26px;color:#555;font-size:12px;border-top:1px solid rgba(255,255,255,.05);padding-top:18px;}
             .highlight{color:#00ff99;font-weight:bold;}
             .feat{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0;text-align:left;}
@@ -618,26 +569,27 @@ app.get('/', (req, res) => {
                 </div>
                 <div class="feat">
                     <div>🖼 Nhúng iframe — không thoát</div>
+                    <div>🔗 URL sạch, không tham số</div>
                     <div>🎛 7 kiểu nền</div>
                     <div>🎬 Chế độ Cinematic</div>
                     <div>🌑 Vignette / 🎞 Grain</div>
-                    <div>🎚 Sáng / Tương phản / Bão hòa</div>
                     <div>⌨ Ctrl+Shift+K</div>
                 </div>
                 <div class="btn-group">
-                    <a href="/embed" class="btn btn-primary" target="_blank">🎬 Mở khung nhúng</a>
-                    <button onclick="customUrl()" class="btn btn-secondary">🔗 URL tùy chỉnh</button>
+                    <a href="/" class="btn btn-primary">🎬 Vào xem</a>
                 </div>
                 <div class="footer"><span class="highlight">✨ Proxy Server</span><br>
                     <span style="color:#666;font-size:11px;">© NHK Proxy</span></div>
             </div>
-            <script>
-                function customUrl(){
-                    const url = prompt('Nhập URL cần nhúng:', 'https://rophimz.vercel.app/phimhay');
-                    if (url) window.open('/embed?url=' + encodeURIComponent(url), '_blank');
-                }
-            </script>
         </body></html>`);
+});
+
+// ============ GỐC + MỌI ĐƯỜNG DẪN ============
+app.get('/', (req, res) => serveShell(res, '/'));
+
+app.get(/^\/(?!proxy|info|images\/|manifest\.json|robots\.txt|sitemap\.xml).*/, (req, res) => {
+    const path = req.path.replace(/\/$/, '') || '/';
+    serveShell(res, path);
 });
 
 // ============ 404 ============
@@ -647,7 +599,7 @@ app.use((req, res) => {
         <body style="font-family:Arial;text-align:center;padding:50px;background:#1a1a2e;color:#fff;">
             <h1 style="color:#ff6b6b;">404 - Không tìm thấy</h1>
             <p>Đường dẫn "${req.url}" không tồn tại.</p>
-            <a href="/" style="color:#00ff99;">Quay lại trang chủ</a>
+            <a href="/" style="color:#00ff99;">Quay lại</a>
         </body></html>`);
 });
 
